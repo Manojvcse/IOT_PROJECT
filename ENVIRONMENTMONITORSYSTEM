@@ -1,0 +1,180 @@
+#include <LiquidCrystal.h>
+#include <DHT.h>
+
+#define DHTPIN A0 // Pin connected to the DHT sensor
+#define DHTTYPE DHT11 // Type of DHT sensor
+#define airQualityPin A1 // Air quality sensor connected to pin A1
+#define mq2Pin A2 // MQ-2 sensor connected to pin A2
+#define buzzerPin 6 // Buzzer connected to pin 6
+#define greenLEDPin 9 // Green LED connected to pin 9
+#define redLEDPin 8 // Red LED connected to pin 8
+#define yellowLEDPin A4 // Yellow LED connected to pin A4
+#define additionalLEDPin A5 // Additional LED connected to pin A5
+
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+DHT dht(DHTPIN, DHTTYPE);
+
+byte smiley[8] = {
+  B00000,
+  B01010,
+  B01010,
+  B00000,
+  B00000,
+  B10001,
+  B01110,
+  B00000
+};
+
+byte sad[8] = {
+  B00000,
+  B01010,
+  B01010,
+  B00000,
+  B00000,
+  B01110,
+  B10001,
+  B00000
+};
+
+void setup() {
+  Serial.begin(9600);
+
+  // Set digital pins 7 to 13 as OUTPUT
+  for (int DigitalPin = 7; DigitalPin <= 13; DigitalPin++) {
+    pinMode(DigitalPin, OUTPUT);
+  }
+
+  pinMode(buzzerPin, OUTPUT); // Set buzzer pin as OUTPUT
+  pinMode(greenLEDPin, OUTPUT); // Set green LED pin as OUTPUT
+  pinMode(redLEDPin, OUTPUT); // Set red LED pin as OUTPUT
+  pinMode(yellowLEDPin, OUTPUT); // Set yellow LED pin as OUTPUT
+  pinMode(additionalLEDPin, OUTPUT); // Set additional LED pin as OUTPUT
+
+  lcd.createChar(0, smiley);
+  lcd.createChar(1, sad);
+
+  lcd.begin(16, 2); // Initialize 16x2 character display
+  dht.begin();
+
+  // Display initial message
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("  ENVIRONMENT");
+  lcd.setCursor(0, 1);
+  lcd.print("  SENSING...!");
+  delay(40000); // Delay for 40 seconds to show the message before starting sensor readings
+}
+
+void loop() {
+  delay(500);
+
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+
+  int airQualityValue = analogRead(airQualityPin);
+  int gasConcentration = map(analogRead(mq2Pin), 0, 1023, 0, 100);
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("T:");
+  lcd.print(t, 1);
+  lcd.print("'C H:");
+  lcd.print(int(h));
+  lcd.print("%");
+
+  lcd.setCursor(0, 1);
+  lcd.print("AQI:");
+  lcd.print(airQualityValue);
+  lcd.print(" ");
+
+  // Display emoji for gas concentration
+  if (gasConcentration >= 0 && gasConcentration <= 12) {
+    lcd.write((uint8_t)0); // Display happy face
+  } else {
+    lcd.write((uint8_t)1); // Display sad face
+  }
+  lcd.print(" GAS:");
+  lcd.print(gasConcentration);
+  lcd.print("%");
+
+  // Delay for 2 seconds
+  delay(2000);
+
+  // Display temperature range
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("CLIM RANGE: ");
+
+  if (t < 0) {
+    lcd.print("VERY COLD");
+  } else if (t >= 0 && t <= 10) {
+    lcd.print("COLD");
+  } else if (t > 10 && t <= 15) {
+    lcd.print("COOL");
+  } else if (t > 15 && t <= 22) {
+    lcd.print("MILD");
+  } else if (t > 22 && t <= 35) {
+    lcd.print("WARM");
+  } else if (t > 35 && t <= 40) {
+    lcd.print("HOT");
+  } else {
+    lcd.print("EXTREME HOT");
+  }
+
+  lcd.setCursor(0, 1);
+  lcd.print("AQ LEVEL:");
+
+  if (airQualityValue >= 0 && airQualityValue < 25) {
+    lcd.print("GOOD");
+  } else if (airQualityValue >= 25 && airQualityValue < 60) {
+    lcd.print("SATISFY");
+  } else if (airQualityValue >= 60 && airQualityValue < 90) {
+    lcd.print("AVG");
+  } else if (airQualityValue >= 90 && airQualityValue < 120) {
+    lcd.print("POOR");
+  } else {
+    lcd.print("HAZARD");
+  }
+
+  // Temperature conditions for LED blinking
+  if (t >= 22 && t < 40) {
+    blinkLED(greenLEDPin, 500); // Blink green LED on pin 9
+  } else {
+    blinkLED(redLEDPin, 500); // Blink red LED on pin 8
+  }
+
+  // Air quality conditions for LED blinking
+  if (airQualityValue > 0 && airQualityValue < 26) {
+    blinkLED(7, 100); // Blink green LED on pin 7
+  } else if (airQualityValue >= 26 && airQualityValue < 90) {
+    blinkLED(10, 100); // Blink yellow LED on pin 10
+  } else if ((airQualityValue >= 90 && airQualityValue < 200) || airQualityValue >= 200) {
+    blinkLED(13, 100); // Blink red LED on pin 13
+  }
+
+  // Gas concentration conditions for LED blinking and buzzer
+  if (gasConcentration > 32) {
+    blinkBuzzer(buzzerPin, 200); // Blink buzzer on pin 6 with a faster duration
+  } else if (gasConcentration >= 6 && gasConcentration < 30) {
+    blinkLED(yellowLEDPin, 100); // Blink yellow LED on pin A4
+  } else if (gasConcentration > 0 && gasConcentration <= 5) {
+    blinkLED(additionalLEDPin, 100); // Blink green LED on pin A5
+  }
+
+  // Delay for 2 seconds
+  delay(2000);
+}
+
+void blinkLED(int pin, int duration) {
+  digitalWrite(pin, HIGH);
+  delay(duration);
+  digitalWrite(pin, LOW);
+  delay(duration);
+}
+
+void blinkBuzzer(int pin, int duration) {
+  digitalWrite(pin, HIGH);
+  delay(duration);
+  digitalWrite(pin, LOW);
+  delay(duration);
+}
