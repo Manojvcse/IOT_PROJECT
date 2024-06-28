@@ -1,6 +1,6 @@
 #define trigPin 2 //Sensor Echo pin connected to Arduino pin 13
 #define echoPin 3 //Sensor Trip pin connected to Arduino pin 12
-
+//manojvcse
 void setup() 
 {  
  pinMode(trigPin, OUTPUT);
@@ -65,6 +65,6 @@ else
  digitalWrite(6, HIGH);   // turn the LED on (HIGH is the voltage level)
  digitalWrite(7, HIGH);   // turn the LED on (HIGH is the voltage level)
   }
-  delay(250); //pause to let things settle  
+  delay(250); 
   }
   
